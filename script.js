@@ -1,11 +1,8 @@
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';
+import { pipeline, env } from 'https://jsdelivr.net';
 
 env.allowLocalModels = true;
 env.allowRemoteModels = false;
-
-// CRITICAL OVERRIDE: Stops the engine from writing heavy data blocks into the browser cache
 env.useBrowserCache = false;
-env.useFSCache = false;
 
 
 const MODEL_ID = 'model';
