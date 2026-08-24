@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Text AI - Stable Green Edition</title>
+    
+    <!-- Load Microsoft ONNX and Transformers Web Engine via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js"></script>
+
+    <style>
+        /* ----------------------------------------------------
+           1. LAYOUT RESET & SCROLLBAR OVERRIDES
+        ---------------------------------------------------- */
+        :root {
+            --bg-color: #010a01;
+            --panel-bg: #021402;
+            --border-color: #004400;
+            --text-glow: #00ff00;
+            --text-muted: #008800;
+            --text-bright: #33ff33;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-glow);
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Standard W3C Scrollbar properties (Firefox) */
+        .chat-stream-panel {
+            scrollbar-width: thin;
+            scrollbar-color: var(--text-glow) var(--panel-bg);
+            scrollbar-gutter: stable;
+        }
+
+        /* WebKit Pseudo-Elements (Chrome, Edge, Safari, Opera) */
+        .chat-stream-panel::-webkit-scrollbar {
+            width: 10px;
+            background: var(--panel-bg);
+        }
+
+        .chat-stream-panel::-webkit-scrollbar-thumb {
+            background: var(--text-glow);
+            border-radius: 5px;
+            border: 2px solid var(--panel-bg);
+            box-shadow: 0 0 5px var(--text-glow);
+        }
+
+        .chat-stream-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--text-bright);
+        }
+
+        /* ----------------------------------------------------
+           2. INTERFACE CONTAINER STYLING
+        ---------------------------------------------------- */
+        .app-container {
+            width: 90vw;
+            max-width: 800px;
+            height: 85vh;
+            background-color: var(--panel-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header Navigation Grid */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .app-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-action {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action:hover {
+            color: var(--text-bright);
+            border-color: var(--text-glow);
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Core Conversation Stream Panel */
+        .chat-stream-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .status-msg {
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.85rem;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 6px;
+            line-height: 1.4;
+            font-size: 0.9rem;
+            word-wrap: break-word;
+        }
+
+        .message-bubble.user {
+            align-self: flex-end;
+            background-color: rgba(0, 68, 0, 0.4);
+            border: 1px solid var(--border-color);
+            color: var(--text-bright);
+        }
+
+        .message-bubble.ai {
+            align-self: flex-start;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-left: 3px solid var(--text-glow);
+        }
+
+        /* Footer Input Form Controls */
+        .app-footer {
+            padding: 16px;
+            border-top: 2px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            color: var(--text-bright);
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: var(--text-glow);
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.2);
+        }
+
+        .btn-send {
+            background-color: var(--border-color);
+            color: #000;
+            border: none;
+            padding: 0 24px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-send:hover {
+            background-color: var(--text-glow);
+            box-shadow: 0 0 10px var(--text-glow);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-title">PC Text AI // STABLE GREEN</div>
+            <div class="header-actions">
+                <button class="btn-action" onclick="newDataStream()">+ New Data Stream</button>
+                <button class="btn-action" onclick="alert('ONNX Local Core State: Active')">System Verified</button>
+                <button class="btn-action" onclick="clearMemory()">Clear</button>
+            </div>
+        </header>
+
+        <!-- Dynamic Stream Output Area -->
+        <main class="chat-stream-panel" id="streamPanel">
+            <div class="status-msg" id="protocolStatus">Loading framework protocols... Initializing ONNX runtime web assembly...</div>
+        </main>
+
+        <!-- Footer Input Bar -->
+        <footer class="app-footer">
+            <form class="input-wrapper" id="chatForm" onsubmit="handleSend(event)">
+                <input type="text" class="chat-input" id="userInput" placeholder="Enter data stream:" autocomplete="off">
+                <button type="submit" class="btn-send" id="sendBtn">Send</button>
+            </form>
+        </footer>
+    </div>
+
+    <!-- ----------------------------------------------------
+       3. INTERACTIVE ENGINE SCRIPTS
+    ---------------------------------------------------- -->
+    <script>
+        const streamPanel = document.getElementById('streamPanel');
+        const userInput = document.getElementById('userInput');
+        const statusMsg = document.getElementById('protocolStatus');
+        const sendBtn = document.getElementById('sendBtn');
+
+        let pipeline = null;
+
+        // Initialize the browser-level ONNX engine and map to your folder layout
+        async function initializeLocalEngine() {
+            try {
+                // Disable global cloud telemetry hubs so everything stays strictly local
+                transformers.env.allowRemoteModels = false; 
+                transformers.env.allowLocalModels = true;
+                
+                // Set the base root directory where the 'model' directory lives
+                transformers.env.localModelPath = './'; 
+
+                // Build a client-side Text Generation pipeline pointing directly to the 'model' path folder
+                pipeline = await transformers.pipeline('text-generation', 'model', {
+                    quantized: true,
+                    model_file_name: 'model_quantized.onnx'
+                });
+
+                statusMsg.innerText = "System ready. Running fully client-side on your hardware. Enter data stream:";
+            } catch (error) {
+                console.error(error);
+                statusMsg.innerText = "CRITICAL INIT ERROR: Path mismatch. Verify 'config.json' is in 'model/' and 'model_quantized.onnx' is inside 'model/onnx/'.";
+                statusMsg.style.color = "#ff3333";
+            }
+        }
+
+        // Trigger the engine boot sequence automatically when the webpage renders
+        initializeLocalEngine();
+
+        // Handles the Send Command Loop
+        async function handleSend(event) {
+            event.preventDefault();
+            const text = userInput.value.trim();
+            if (!text || !pipeline) return;
+
+            if(statusMsg) statusMsg.style.display = 'none';
+
+            // Print User Bubble
+            appendBubble(text, 'user');
+            userInput.value = '';
+            autoScroll();
+
+            // Establish an interactive loader layer
+            sendBtn.disabled = true;
+            sendBtn.innerText = "...";
+            const aiBubble = appendBubble("Processing data stream through local ONNX matrix...", 'ai');
+
+            try {
+                // Execute native hardware inference inside the browser runtime sandbox
+                const output = await pipeline(text, {
+                    max_new_tokens: 128,
+                    temperature: 0.7,
+                    do_sample: true
+                });
+
+                // Extract the generated text block safely
+                let generatedText = "";
+                if (Array.isArray(output) && output.length > 0) {
+                    generatedText = output[0].generated_text || "";
+                } else if (output && output.generated_text) {
+                    generatedText = output.generated_text;
+                }
+                
+                // Clean the output by stripping your prompt if the model echoes it back
+                aiBubble.innerText = generatedText.startsWith(text) 
+                    ? generatedText.substring(text.length).trim() 
+                    : generatedText;
+
+            } catch (error) {
+                console.error(error);
+                aiBubble.innerText = "STREAM PIPELINE CORRUPTION: Local inference process failed or timed out.";
+                aiBubble.style.color = "#ff3333";
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Send";
+                autoScroll();
+            }
+        }
+
+        // Appends Chat Objects Safely
+        function appendBubble(text, sender) {
+            const bubble = document.createElement('div');
+            bubble.classList.add('message-bubble', sender);
+            bubble.innerText = text;
+            streamPanel.appendChild(bubble);
+            return bubble;
+        }
+
+        // Unified Scrolling Function
+        function autoScroll() {
+            streamPanel.scrollTo({
+                top: streamPanel.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Clear resets memory AND wipes text UI canvas
+        function clearMemory() {
+            const bubbles = streamPanel.querySelectorAll('.message-bubble');
+            bubbles.forEach(b => b.remove());
+            if(statusMsg) statusMsg.style.display = 'block';
+        }
+
+        // Hard Reset: Clears window and starts fresh cycle logs
+        function newDataStream() {
+            clearMemory();
+        }
+    </script>
+</body>
+</html>
