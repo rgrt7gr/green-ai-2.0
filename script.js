@@ -236,16 +236,13 @@ function extractGeneratedText(value) {
     return '';
 }
 
-async function sendMessage() {
-    const inputEl = $('user-input');
-    if (!inputEl || !generator || !currentChatId || isGenerating) return;
+// Change it from generator(...) to window.aiGenerator(...)
+const output = await window.aiGenerator(allConversations[currentChatId].history, { 
+    max_new_tokens: 250, 
+    temperature: 0.6
+});
 
-    const prompt = inputEl.value.trim();
-    if (!prompt) return;
 
-    isGenerating = true;
-    setSendEnabled(false);
-    inputEl.value = '';
 
     const chat = allConversations[currentChatId];
     if (!chat) {
